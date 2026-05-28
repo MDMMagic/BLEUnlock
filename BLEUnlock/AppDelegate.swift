@@ -204,7 +204,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     func lockOrSaveScreen() {
         if prefs.bool(forKey: "screensaver") {
-            NSWorkspace.shared.launchApplication("ScreenSaverEngine")
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            task.arguments = ["-a", "ScreenSaverEngine"]
+            try? task.run()
         } else {
             if SACLockScreenImmediate() != 0 {
                 print("Failed to lock screen")
@@ -223,7 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     NSUserNotificationCenter.default.removeDeliveredNotification(un)
                     userNotification = nil
                 }
-                if displaySleep && !systemSleep && prefs.bool(forKey: "wakeOnProximity") {
+                if displaySleep && !systemSleep {
                     print("Waking display")
                     wakeDisplay()
                     wakeTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { _ in
