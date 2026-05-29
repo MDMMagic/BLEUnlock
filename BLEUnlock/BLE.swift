@@ -337,6 +337,35 @@ class BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                     device.peripheral = peripheral
                     device.rssi = rssi
                     device.advData = advertisementData["kCBAdvDataManufacturerData"] as? Data
+
+                    // Resolve MAC address early for deduplication
+                    if device.macAddr == nil {
+                        if let info = getLEDeviceInfoFromUUID(device.uuid.description) {
+                            device.blName = info.name
+                            device.macAddr = info.macAddr
+                        }
+                        if device.macAddr == nil {
+                            device.macAddr = getMACFromUUID(device.uuid.description)
+                        }
+                    }
+
+                    // Deduplicate by MAC address (most reliable) then by display name
+                    var duplicate: Device? = nil
+                    if let mac = device.macAddr, !mac.isEmpty {
+                        duplicate = devices.values.first { $0.macAddr == mac }
+                    }
+                    if duplicate == nil {
+                        let desc = device.description
+                        if !desc.isEmpty && !desc.hasPrefix("iBeacon") {
+                            duplicate = devices.values.first { $0.description == desc }
+                        }
+                    }
+                    if let dup = duplicate {
+                        delegate?.removeDevice(device: dup)
+                        if let p = dup.peripheral { centralMgr.cancelPeripheralConnection(p) }
+                        devices.removeValue(forKey: dup.uuid)
+                    }
+
                     devices[peripheral.identifier] = device
                     central.connect(peripheral, options: nil)
                     delegate?.newDevice(device: device)

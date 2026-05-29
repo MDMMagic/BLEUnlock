@@ -26,6 +26,7 @@
 "password_not_set" = "Kein Passwort gesetzt.";
 "pause_now_playing" = "Pause \"Spielt jetzt\" während der Sperre";
 "quit" = "BLEUnlock beenden";
+"run_event_script_while_locked" = "\"event\"-Skript während der Sperre ausführen";
 "scanning" = "Scanning";
 "seconds" = "seconds";
 "set_password" = "Passwort setzen…";

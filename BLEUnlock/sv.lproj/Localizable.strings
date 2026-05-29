@@ -26,6 +26,7 @@
 "password_not_set" = "Inget lösenordet har angetts.";
 "pause_now_playing" = "Pausa \"Spela nu\" när låst";
 "quit" = "Avsluta BLEUnlock";
+"run_event_script_while_locked" = "Kör \"event\"-skript när låst";
 "scanning" = "Skannar…";
 "seconds" = "sekunder";
 "set_password" = "Ange lösenord…";

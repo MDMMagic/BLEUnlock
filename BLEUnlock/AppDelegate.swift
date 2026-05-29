@@ -30,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     var unlockedAt = 0.0
     var inScreensaver = false
     var lastRSSI: Int? = nil
+    var didRunEventScriptSinceLock = false
 
     func menuWillOpen(_ menu: NSMenu) {
         if menu == deviceMenu {
@@ -96,7 +97,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
     
     func newDevice(device: Device) {
-        let menuItem = deviceMenu.addItem(withTitle: menuItemTitle(device: device), action:#selector(selectDevice), keyEquivalent: "")
+        let title = menuItemTitle(device: device)
+
+        // Remove any existing menu item with the same name (minus RSSI suffix) to avoid duplicates
+        // caused by BLE address rotation showing the same physical device multiple times
+        let titleWithoutRSSI = title.components(separatedBy: " (").first ?? title
+        var duplicateUUID: UUID? = nil
+        for (existingUUID, existingItem) in deviceDict {
+            if existingUUID != device.uuid {
+                let existingBase = existingItem.title.components(separatedBy: " (").first ?? existingItem.title
+                if existingBase == titleWithoutRSSI {
+                    duplicateUUID = existingUUID
+                    break
+                }
+            }
+        }
+        if let dupUUID = duplicateUUID {
+            if let dupDevice = ble.devices[dupUUID] {
+                removeDevice(device: dupDevice)
+            } else {
+                deviceDict[dupUUID]?.menu?.removeItem(deviceDict[dupUUID]!)
+                deviceDict.removeValue(forKey: dupUUID)
+            }
+        }
+
+        let menuItem = deviceMenu.addItem(withTitle: title, action:#selector(selectDevice), keyEquivalent: "")
         deviceDict[device.uuid] = menuItem
         if (device.uuid == ble.monitoredUUID) {
             menuItem.state = .on
@@ -183,10 +208,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             DispatchQueue.main,
             { (playing) in
                 self.nowPlayingWasPlaying = playing
-                if self.nowPlayingWasPlaying {
-                    print("pause")
-                    MRMediaRemoteSendCommand(MRCommandPause, nil)
-                }
+                // Always send pause — on macOS 26 the callback may return false even when
+                // media is playing, but sending pause when nothing is playing is harmless
+                print("pause")
+                MRMediaRemoteSendCommand(MRCommandPause, nil)
             }
         )
     }
@@ -237,11 +262,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 tryUnlockScreen()
             }
         } else {
-            if (!isScreenLocked() && ble.lockRSSI != ble.LOCK_DISABLED) {
-                pauseNowPlaying()
-                lockOrSaveScreen()
-                notifyUser(reason)
-                runScript(reason)
+            if ble.lockRSSI != ble.LOCK_DISABLED {
+                let locked = isScreenLocked()
+                if !locked {
+                    pauseNowPlaying()
+                    lockOrSaveScreen()
+                    notifyUser(reason)
+                }
+                if (!locked || prefs.bool(forKey: "runEventScriptWhileLocked")) && !didRunEventScriptSinceLock {
+                    runScript(reason)
+                    didRunEventScriptSinceLock = true
+                }
             }
             manualLock = false
         }
@@ -343,6 +374,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @objc func onUnlock() {
+        didRunEventScriptSinceLock = false
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false, block: { _ in
             print("onUnlock")
             if Date().timeIntervalSince1970 >= self.unlockedAt + 10 {
@@ -529,7 +561,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         prefs.set(pauseNowPlaying, forKey: "pauseItunes")
         menuItem.state = pauseNowPlaying ? .on : .off
     }
-    
+
+    @objc func toggleRunEventScriptWhileLocked(_ menuItem: NSMenuItem) {
+        let value = !prefs.bool(forKey: "runEventScriptWhileLocked")
+        prefs.set(value, forKey: "runEventScriptWhileLocked")
+        menuItem.state = value ? .on : .off
+    }
+
     @objc func toggleUseScreensaver(_ menuItem: NSMenuItem) {
         let value = !prefs.bool(forKey: "screensaver")
         prefs.set(value, forKey: "screensaver")
@@ -633,6 +671,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         item = mainMenu.addItem(withTitle: t("pause_now_playing"), action: #selector(togglePauseNowPlaying), keyEquivalent: "")
         if prefs.bool(forKey: "pauseItunes") {
+            item.state = .on
+        }
+
+        item = mainMenu.addItem(withTitle: t("run_event_script_while_locked"), action: #selector(toggleRunEventScriptWhileLocked), keyEquivalent: "")
+        if prefs.bool(forKey: "runEventScriptWhileLocked") {
             item.state = .on
         }
 

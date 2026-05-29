@@ -26,6 +26,7 @@
 "password_not_set" = "Der er ikke indstillet et kodeord.";
 "pause_now_playing" = "Pause \"Afspilning nu\", mens den er låst";
 "quit" = "Afslut BLEUnlock";
+"run_event_script_while_locked" = "Kør \"event\"-scriptet, mens den er låst";
 "scanning" = "Scanning…";
 "seconds" = "seconder";
 "set_password" = "Indstil adgangskode…";

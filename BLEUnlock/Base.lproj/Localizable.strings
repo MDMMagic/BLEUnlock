@@ -26,6 +26,7 @@
 "password_not_set" = "Password is not set.";
 "pause_now_playing" = "Pause \"Now Playing\" while Locked";
 "quit" = "Quit BLEUnlock";
+"run_event_script_while_locked" = "Run \"event\" Script while Locked";
 "scanning" = "Scanning…";
 "seconds" = "seconds";
 "set_password" = "Set Password…";
